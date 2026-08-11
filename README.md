@@ -17,36 +17,10 @@ Standalone builds are available from the repository's **Releases** page:
 These builds include Python and all required packages. Users do not need to
 install Python or Textual.
 
-## Requirements
-
-- Python 3.10 or newer
-- A folder containing bank folders named `A` through `H`
-- A folder containing your sound-pack collection
-
-The app uses the Textual framework for its terminal interface. Each launcher
-creates a private `.venv` environment and installs the required packages
-automatically. An internet connection is required the first time you launch it.
-
 ## Start the app
 
 If you downloaded a standalone release, extract it if necessary and run the
-`Digitone II Preset Library` application. The launchers below are intended for
-people running directly from the source code.
-
-Use the launcher for your operating system:
-
-- **macOS:** `Start Digitone II Preset Library (macOS).command`
-- **Linux:** `Start Digitone II Preset Library (Linux).sh`
-- **Windows:** `Start Digitone II Preset Library (Windows).bat`
-
-To run the app manually, create an environment and install the dependencies:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install -r requirements.txt
-python3 digitone_preset_library.py
-```
+`Digitone II Preset Library` application. No Python installation is required.
 
 ## First launch
 
@@ -68,7 +42,7 @@ and asks you to select a valid folder before continuing.
 
 The main navigation bar is always shown at the top of the screen:
 
-`BANKS` · `SOUND PACKS` · `TAGS` · `STATISTICS` · `SETTINGS` · `EXIT`
+`BANKS` · `SOUND PACKS` · `TAGS` · `STATISTICS` · `SETTINGS`
 
 - Click a tab with the mouse; or
 - Press `Tab` to focus the navigation bar and select a tab with the arrow keys.
@@ -96,41 +70,44 @@ Switch directly between banks using the permanent horizontal `A`–`H` tabs.
 Browse every preset, see its tags and source sound pack, and spot duplicates
 highlighted in red.
 
+![Banks screen](docs/screenshots/banks.png)
+
 ### Sound Packs
 
-See how many presets from each sound pack are present in your banks. Select a
-sound pack to view its tags and matching bank positions. Press `Z` to show only
-sound packs with no presets found in the banks.
+See which sound packs are represented in your banks. Select a sound pack to
+view its tags and matching bank positions. Use the switch above the list to
+show only sound packs with no matches.
+
+![Sound Packs screen](docs/screenshots/sound-packs.png)
 
 ### Tags
 
 View all tags found in your preset collection and the number of presets using
 each tag.
 
+![Tags screen](docs/screenshots/tags.png)
+
 ### Statistics
 
 View bank capacity at a glance. Each bank can contain up to 256 presets. If a
-bank exceeds that limit, press `M` to review a redistribution plan. Files are
-not moved until you explicitly select **MOVE** and confirm.
+bank exceeds that limit, select **Review Redistribution Plan**. Files are not
+moved until you explicitly confirm the plan.
+
+![Statistics screen](docs/screenshots/statistics.png)
 
 ### Settings
 
-Change the Banks A–H folder or Sound Packs folder. Select a row and press
-`Enter` to choose a new folder. The new path is saved automatically and the
-collection is scanned again.
+Change the Banks A–H folder or Sound Packs folder with the **Browse…** buttons.
+The new path is saved automatically and the collection is scanned again.
 
-## Command-line options
+![Settings screen](docs/screenshots/settings.png)
 
-You can temporarily override the saved folders:
+## Running from source
 
-```bash
-python3 digitone_preset_library.py \
-  --backup "/path/to/banks" \
-  --packs "/path/to/sound-packs"
-```
+Python 3.10 or newer is required only when running directly from the source
+code. Use the launcher for your operating system; it creates a private
+environment and installs the required packages automatically:
 
-To create a report without opening the interface:
-
-```bash
-python3 digitone_preset_library.py --no-ui --report report.txt
-```
+- **macOS:** `Start Digitone II Preset Library (macOS).command`
+- **Linux:** `Start Digitone II Preset Library (Linux).sh`
+- **Windows:** `Start Digitone II Preset Library (Windows).bat`

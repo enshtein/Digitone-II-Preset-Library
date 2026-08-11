@@ -1,25 +1,31 @@
 @echo off
 setlocal
 set "SCRIPT_DIR=%~dp0"
+set "VENV=%SCRIPT_DIR%.venv"
 
 where py >nul 2>nul
 if %errorlevel% equ 0 (
-    py -3 -m pip install --disable-pip-version-check -r "%SCRIPT_DIR%requirements.txt"
-    if errorlevel 1 goto dependency_error
-    py -3 "%SCRIPT_DIR%digitone_preset_library.py"
-    goto finished
+    if not exist "%VENV%\Scripts\python.exe" py -3 -m venv "%VENV%"
+    goto run_app
 )
 
 where python >nul 2>nul
 if %errorlevel% equ 0 (
-    python -m pip install --disable-pip-version-check -r "%SCRIPT_DIR%requirements.txt"
-    if errorlevel 1 goto dependency_error
-    python "%SCRIPT_DIR%digitone_preset_library.py"
-    goto finished
+    if not exist "%VENV%\Scripts\python.exe" python -m venv "%VENV%"
+    goto run_app
 )
 
 echo Python 3 was not found. Install it from https://www.python.org/downloads/
 goto failed
+
+:run_app
+"%VENV%\Scripts\python.exe" -c "import textual" >nul 2>nul
+if errorlevel 1 (
+    "%VENV%\Scripts\python.exe" -m pip install --disable-pip-version-check -r "%SCRIPT_DIR%requirements.txt"
+    if errorlevel 1 goto dependency_error
+)
+"%VENV%\Scripts\python.exe" "%SCRIPT_DIR%digitone_preset_library.py"
+goto finished
 
 :dependency_error
 echo.

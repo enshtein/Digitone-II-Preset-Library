@@ -11,9 +11,9 @@ files and does not connect to the Digitone II hardware.
 - A folder containing bank folders named `A` through `H`
 - A folder containing your sound-pack collection
 
-No additional packages are required on macOS or Linux. On Windows, the launcher
-automatically installs the small `windows-curses` terminal dependency the first
-time it runs, so an internet connection is required for that first launch.
+The app uses the Textual framework for its terminal interface. Each launcher
+creates a private `.venv` environment and installs the required packages
+automatically. An internet connection is required the first time you launch it.
 
 ## Start the app
 
@@ -23,9 +23,12 @@ Use the launcher for your operating system:
 - **Linux:** `Start Digitone II Preset Library (Linux).sh`
 - **Windows:** `Start Digitone II Preset Library (Windows).bat`
 
-On macOS or Linux, you can also run:
+To run the app manually, create an environment and install the dependencies:
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
 python3 digitone_preset_library.py
 ```
 
@@ -42,12 +45,15 @@ and asks you to select a valid folder before continuing.
 
 ## Navigation
 
-The main menu is always shown at the bottom of the screen:
+The main navigation bar is always shown at the top of the screen:
 
 `BANKS` · `SOUND PACKS` · `TAGS` · `STATISTICS` · `SETTINGS` · `EXIT`
 
-- Click a menu item with the mouse; or
-- Press `Tab`, select an item with `←` and `→`, then press `Enter`.
+- Click a tab with the mouse; or
+- Press `Tab` to focus the navigation bar and select a tab with the arrow keys.
+
+Tables support mouse selection, arrow-key navigation, and scrolling. Available
+keyboard commands are shown in the footer at the bottom of the screen.
 
 Keyboard shortcuts are also available:
 

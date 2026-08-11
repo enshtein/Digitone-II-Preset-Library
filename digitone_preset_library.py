@@ -1313,7 +1313,24 @@ def main() -> int:
         export_report(result, args.report)
         print(args.report)
     else:
-        run_ui(settings, args.report)
+        try:
+            from textual_ui import run_textual_ui
+        except ImportError:
+            print(
+                "Textual is not installed. Run: python3 -m pip install -r requirements.txt",
+                file=sys.stderr,
+            )
+            return 2
+        run_textual_ui(
+            settings,
+            args.report,
+            scan=scan,
+            save_settings=save_settings,
+            export_report=export_report,
+            build_move_plan=build_move_plan,
+            execute_move_plan=execute_move_plan,
+            banks=BANKS,
+        )
     return 0
 
 

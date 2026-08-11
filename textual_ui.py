@@ -105,6 +105,40 @@ class ConfirmMove(ModalScreen[bool]):
         self.dismiss(False)
 
 
+class BankSetupInfo(ModalScreen[None]):
+    """Explain how to export presets after creating bank folders."""
+
+    BINDINGS = [("escape", "close", "Close")]
+
+    def __init__(self, root: Path, created: list[str]) -> None:
+        super().__init__()
+        self.root = root
+        self.created = created
+
+    def compose(self) -> ComposeResult:
+        folders = ", ".join(self.created)
+        with Vertical(id="setup-dialog"):
+            yield Label("Bank Folders Are Ready", classes="dialog-title")
+            yield Static(
+                f"The missing bank folders ({folders}) were created in:\n"
+                f"{self.root}\n\n"
+                "For the library to display your Digitone II presets:\n\n"
+                "1. Download and install the official Elektron Transfer application.\n"
+                "2. Connect your Digitone II and open Elektron Transfer.\n"
+                "3. Export the presets from every Digitone II bank into the matching "
+                "A–H folder created here."
+            )
+            with Horizontal(classes="dialog-buttons"):
+                yield Button("Got It", variant="primary", id="setup-close")
+
+    @on(Button.Pressed, "#setup-close")
+    def close_button(self) -> None:
+        self.dismiss(None)
+
+    def action_close(self) -> None:
+        self.dismiss(None)
+
+
 class PresetLibraryApp(App[None]):
     """Modern terminal UI backed by the existing preset-library engine."""
 
@@ -141,6 +175,7 @@ class PresetLibraryApp(App[None]):
     #folder-path { margin-bottom: 1; }
     #folder-tree { height: 1fr; border: round #216e4e; }
     #confirm-dialog { width: 80; height: auto; padding: 1 2; border: thick #18a558; background: #10251b; }
+    #setup-dialog { width: 86; height: auto; padding: 1 2; border: thick #18a558; background: #10251b; }
     .dialog-buttons { height: 3; align-horizontal: center; margin-top: 1; }
     .dialog-buttons Button { margin: 0 1; }
     """
@@ -378,6 +413,19 @@ class PresetLibraryApp(App[None]):
     def folder_selected(self, field: str, path: Path | None) -> None:
         if path is None:
             return
+        created: list[str] = []
+        if field == "backup":
+            try:
+                for bank in self.banks:
+                    bank_folder = path / bank
+                    if not bank_folder.exists():
+                        bank_folder.mkdir()
+                        created.append(bank)
+                    elif not bank_folder.is_dir():
+                        raise NotADirectoryError(f"{bank_folder} exists but is not a folder")
+            except OSError as exc:
+                self.notify(str(exc), title="Could not create bank folders", severity="error")
+                return
         settings_type = type(self.settings)
         self.settings = settings_type(
             backup=path if field == "backup" else self.settings.backup,
@@ -389,6 +437,8 @@ class PresetLibraryApp(App[None]):
             self.notify(str(exc), title="Could not save settings", severity="error")
             return
         self.update_settings_view()
+        if created:
+            self.push_screen(BankSetupInfo(path, created))
         if self.settings_complete():
             self.lock_navigation(False)
             self.notify("Settings saved. Scanning the collection…", severity="information")

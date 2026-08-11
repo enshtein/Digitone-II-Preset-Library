@@ -52,8 +52,13 @@ python3 digitone_preset_library.py
 
 The app asks you to select two folders before scanning:
 
-1. **Banks A–H** — the folder that contains your `A`, `B`, `C`, … `H` bank folders.
+1. **Banks A–H** — the folder that will contain your `A`, `B`, `C`, … `H` bank folders.
 2. **Sound packs** — the folder that contains your sound-pack collection.
+
+If any bank folders are missing, the app creates them automatically. It then
+shows instructions for using the official **Elektron Transfer** application to
+export presets from each Digitone II bank into the corresponding A–H folder.
+Existing folders and files are never replaced.
 
 Both selections are saved automatically. You can change them later from
 **Settings**. If a saved folder is no longer available, the app opens Settings

@@ -3,6 +3,8 @@ name: Build standalone applications
 on:
   workflow_dispatch:
   push:
+    branches:
+      - master
     tags:
       - "v*"
 

@@ -477,6 +477,9 @@ class App:
         self.only_empty_packs = False
         self.pack_detail_offset = 0
         self.message = ""
+        self.menu_index = 0
+        self.menu_focused = False
+        self.menu_hitboxes: list[tuple[int, int, int]] = []
 
     @property
     def bank(self) -> str:
@@ -507,6 +510,79 @@ class App:
                 self.screen.addnstr(y, x, text, max(0, width - x - 1), attr)
             except curses.error:
                 pass
+
+    def settings_complete(self) -> bool:
+        return all(
+            path is not None and path.is_dir()
+            for path in (self.settings.backup, self.settings.packs)
+        )
+
+    def current_section(self) -> int:
+        if self.pack_view:
+            return 1
+        if self.tags_view:
+            return 2
+        if self.stats_view:
+            return 3
+        if self.settings_view:
+            return 4
+        return 0
+
+    def activate_menu(self, index: int) -> str | None:
+        if index == 5:
+            return "quit"
+        if not self.settings_complete() and index != 4:
+            self.message = "Сначала укажите обе папки в настройках"
+            self.settings_view = True
+            return None
+        self.pack_view = index == 1
+        self.tags_view = index == 2
+        self.stats_view = index == 3
+        self.settings_view = index == 4
+        self.selected = self.offset = 0
+        self.pack_detail_offset = 0
+        self.menu_index = index
+        return None
+
+    def draw_bottom_menu(self) -> None:
+        height, width = self.screen.getmaxyx()
+        y = height - 2
+        self.add(y, 0, " " * max(0, width - 1))
+        labels = ("БАНКИ", "САУНД-ПАКИ", "ТЕГИ", "СТАТИСТИКА", "НАСТРОЙКИ", "ВЫХОД")
+        active = self.current_section()
+        self.menu_hitboxes = []
+        x = 2
+        for index, label in enumerate(labels):
+            text = f"[ {label} ]"
+            if x + len(text) >= width:
+                break
+            attr = curses.A_BOLD
+            if index == active:
+                attr |= curses.color_pair(2)
+            if self.menu_focused and index == self.menu_index:
+                attr |= curses.A_REVERSE
+            self.add(y, x, text, attr)
+            self.menu_hitboxes.append((x, x + len(text), index))
+            x += len(text) + 1
+
+    def handle_mouse(self) -> str | None:
+        try:
+            _, x, y, _, button_state = curses.getmouse()
+        except curses.error:
+            return None
+        click_mask = (
+            getattr(curses, "BUTTON1_CLICKED", 0)
+            | getattr(curses, "BUTTON1_PRESSED", 0)
+            | getattr(curses, "BUTTON1_RELEASED", 0)
+        )
+        if not button_state & click_mask or y != self.screen.getmaxyx()[0] - 2:
+            return None
+        for start, end, index in self.menu_hitboxes:
+            if start <= x < end:
+                self.menu_index = index
+                self.menu_focused = False
+                return self.activate_menu(index)
+        return None
 
     def draw_bank_tabs(self) -> None:
         x = 2
@@ -605,6 +681,7 @@ class App:
             self.add(height - 4, 2, detail, curses.A_DIM)
         self.add(height - 2, 2, "←/→ банк  ↑/↓ выбор  T фильтр  F совпадения  P паки  G теги  S статистика  E отчёт  R скан  Q выход")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
+        self.draw_bottom_menu()
         self.screen.refresh()
 
     def draw_settings(self) -> None:
@@ -633,6 +710,7 @@ class App:
         controls += "  Q выход"
         self.add(height - 2, 2, controls)
         self.add(height - 1, 2, self.message, curses.color_pair(2))
+        self.draw_bottom_menu()
         self.screen.refresh()
 
     def choose_folder(self, title: str, initial: Path | None) -> Path | None:
@@ -731,6 +809,7 @@ class App:
             self.draw_pack_details(pack, details, left_width + 5, width, height)
         self.add(height - 2, 2, "↑/↓ пак  ←/→ справа  Z без совпадений  P банки  G теги  S статистика  E отчёт  R скан  Q выход")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
+        self.draw_bottom_menu()
         self.screen.refresh()
 
     def draw_pack_details(
@@ -817,6 +896,7 @@ class App:
         )
         self.add(height - 2, 2, "↑/↓ выбор  G банки  P саунд-паки  S статистика  E отчёт  R скан  Q выход")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
+        self.draw_bottom_menu()
         self.screen.refresh()
 
     @staticmethod
@@ -855,6 +935,7 @@ class App:
         )
         self.add(height - 2, 2, "M план переноса  S банки  P саунд-паки  G теги  E отчёт  R скан  Q выход")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
+        self.draw_bottom_menu()
         self.screen.refresh()
 
     def confirm_move_plan(self, plan: MovePlan) -> bool:
@@ -990,12 +1071,36 @@ class App:
         while True:
             self.draw()
             key = self.screen.getch()
+            if key == curses.KEY_MOUSE:
+                action = self.handle_mouse()
+                if action == "quit":
+                    return "quit"
+                continue
             if key in (ord("q"), ord("Q"), 27):
                 return "quit"
-            settings_incomplete = not all(
-                path is not None and path.is_dir()
-                for path in (self.settings.backup, self.settings.packs)
-            )
+            if key in (9, getattr(curses, "KEY_BTAB", -1)):
+                backwards = key == getattr(curses, "KEY_BTAB", -1)
+                if not self.menu_focused:
+                    self.menu_index = self.current_section()
+                    self.menu_focused = True
+                else:
+                    step = -1 if backwards else 1
+                    self.menu_index = (self.menu_index + step) % 6
+                continue
+            if self.menu_focused:
+                if key == curses.KEY_LEFT:
+                    self.menu_index = (self.menu_index - 1) % 6
+                elif key == curses.KEY_RIGHT:
+                    self.menu_index = (self.menu_index + 1) % 6
+                elif key in (curses.KEY_ENTER, 10, 13):
+                    action = self.activate_menu(self.menu_index)
+                    self.menu_focused = False
+                    if action == "quit":
+                        return "quit"
+                elif key == curses.KEY_UP:
+                    self.menu_focused = False
+                continue
+            settings_incomplete = not self.settings_complete()
             if self.settings_view and settings_incomplete:
                 if key in (curses.KEY_DOWN, ord("j"), curses.KEY_UP, ord("k")):
                     self.settings_selection = 1 - self.settings_selection
@@ -1133,6 +1238,12 @@ def run_ui(settings: Settings, report: Path) -> None:
         nonlocal settings
         curses.curs_set(0)
         screen.keypad(True)
+        try:
+            curses.mousemask(
+                curses.ALL_MOUSE_EVENTS | getattr(curses, "REPORT_MOUSE_POSITION", 0)
+            )
+        except curses.error:
+            pass
         if curses.has_colors():
             curses.start_color()
             curses.use_default_colors()

@@ -118,6 +118,8 @@ class PresetLibraryApp(App[None]):
     Tabs { dock: top; background: #0b1c15; }
     Tab { padding: 0 2; }
     Tab.-active { background: #18a558; color: #07110d; text-style: bold; }
+    #bank-tabs { height: 3; dock: top; background: #0d2118; }
+    #bank-tabs Tab { width: 7; padding: 0 1; text-align: center; }
     ContentSwitcher { height: 1fr; }
     .view { height: 1fr; padding: 1; }
     .toolbar { height: 3; align-vertical: middle; }
@@ -192,9 +194,12 @@ class PresetLibraryApp(App[None]):
         )
         with ContentSwitcher(initial="view-banks", id="content"):
             with Vertical(id="view-banks", classes="view"):
+                yield Tabs(
+                    *(Tab(bank, id=f"bank-{bank}") for bank in self.banks),
+                    active=f"bank-{self.current_bank}",
+                    id="bank-tabs",
+                )
                 with Horizontal(classes="toolbar"):
-                    yield Label("Bank")
-                    yield Select([(bank, bank) for bank in self.banks], value=self.current_bank, allow_blank=False, id="bank-select")
                     yield Label("Matches")
                     yield Select(
                         [("All", "all"), ("Found", "found"), ("Not found", "missing"), ("Name only", "name")],
@@ -325,10 +330,10 @@ class PresetLibraryApp(App[None]):
             name = Text(row.parsed.display_name, style="bold red" if row.duplicate_locations else "")
             table.add_row(f"{row.slot:03d}", name, ", ".join(row.parsed.tags) or "—", packs)
 
-    @on(Select.Changed, "#bank-select")
-    def bank_changed(self, event: Select.Changed) -> None:
-        if isinstance(event.value, str):
-            self.current_bank = event.value
+    @on(Tabs.TabActivated, "#bank-tabs")
+    def bank_changed(self, event: Tabs.TabActivated) -> None:
+        if event.tab and event.tab.id:
+            self.current_bank = event.tab.id.removeprefix("bank-")
             self.populate_banks()
 
     @on(Select.Changed, "#match-select")

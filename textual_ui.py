@@ -297,11 +297,11 @@ class PresetLibraryApp(App[None]):
     def populate_banks(self) -> None:
         if self.result is None:
             return
-        table = self.clear_table("#banks-table", ("Slot", "Preset", "Tags", "Sound Pack(s)"))
+        table = self.clear_table("#banks-table", ("Slot", "Preset", "Sound Pack(s)", "Tags"))
         for row in self.result.banks[self.current_bank]:
             packs = ", ".join(row.exact_packs or row.name_only_packs) or "—"
             name = Text(row.parsed.display_name, style="bold red" if row.duplicate_locations else "")
-            table.add_row(f"{row.slot:03d}", name, ", ".join(row.parsed.tags) or "—", packs)
+            table.add_row(f"{row.slot:03d}", name, packs, ", ".join(row.parsed.tags) or "—")
 
     @on(Tabs.TabActivated, "#bank-tabs")
     def bank_changed(self, event: Tabs.TabActivated) -> None:

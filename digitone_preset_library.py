@@ -1290,7 +1290,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backup", type=Path, help="override the saved banks folder")
     parser.add_argument("--packs", type=Path, help="override the saved sound-packs folder")
-    parser.add_argument("--report", type=Path, default=Path(__file__).with_name("digitone_report.txt"))
+    default_report = (
+        Path.home() / "Documents" / "Digitone II Preset Library Report.txt"
+        if getattr(sys, "frozen", False)
+        else Path(__file__).with_name("digitone_report.txt")
+    )
+    parser.add_argument("--report", type=Path, default=default_report)
     parser.add_argument("--no-ui", action="store_true", help="scan and write the text report")
     return parser.parse_args()
 

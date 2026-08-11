@@ -5,6 +5,18 @@ organized into banks A–H. It helps you find duplicate presets, browse tags, an
 see which sound packs your presets came from. The app works with exported preset
 files and does not connect to the Digitone II hardware.
 
+## Download
+
+Standalone builds are available from the repository's **Releases** page:
+
+- Windows x64: `.exe`
+- macOS Apple Silicon: `.tar.gz`
+- macOS Intel: `.tar.gz`
+- Linux x86_64: `.tar.gz`
+
+These builds include Python and all required packages. Users do not need to
+install Python or Textual.
+
 ## Requirements
 
 - Python 3.10 or newer
@@ -16,6 +28,10 @@ creates a private `.venv` environment and installs the required packages
 automatically. An internet connection is required the first time you launch it.
 
 ## Start the app
+
+If you downloaded a standalone release, extract it if necessary and run the
+`Digitone II Preset Library` application. The launchers below are intended for
+people running directly from the source code.
 
 Use the launcher for your operating system:
 

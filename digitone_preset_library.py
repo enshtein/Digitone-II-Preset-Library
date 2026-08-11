@@ -170,7 +170,7 @@ def build_move_plan(result: ScanResult) -> MovePlan:
     available = sum(max(0, 256 - before[bank]) for bank in BANKS)
     if len(overflow_rows) > available:
         raise ValueError(
-            f"Не хватает свободных мест: нужно {len(overflow_rows)}, доступно {available}"
+            f"Not enough free slots: {len(overflow_rows)} needed, {available} available"
         )
 
     projected = dict(before)
@@ -178,7 +178,7 @@ def build_move_plan(result: ScanResult) -> MovePlan:
     for row in overflow_rows:
         candidates = [bank for bank in BANKS if projected[bank] < 256]
         if not candidates:
-            raise ValueError("Не найден банк со свободным местом")
+            raise ValueError("No bank with a free slot was found")
         destination_bank = candidates[0]
         destination = (
             row.parsed.path.parents[1] / destination_bank / row.parsed.path.name
@@ -205,7 +205,7 @@ def execute_move_plan(plan: MovePlan) -> None:
         return
     roots = {move.source.parents[1] for move in plan.moves}
     if len(roots) != 1:
-        raise ValueError("Все банки должны находиться в одной корневой папке")
+        raise ValueError("All banks must be inside the same root folder")
     root = roots.pop()
     current_counts = {
         bank: sum(
@@ -215,12 +215,12 @@ def execute_move_plan(plan: MovePlan) -> None:
         for bank in BANKS
     }
     if current_counts != plan.before_counts:
-        raise RuntimeError("Содержимое банков изменилось после создания плана; пересканируйте")
+        raise RuntimeError("Bank contents changed after the plan was created; scan again")
     for move in plan.moves:
         if not move.source.is_file():
-            raise RuntimeError(f"Исходный файл не найден: {move.source.name}")
+            raise RuntimeError(f"Source file not found: {move.source.name}")
         if move.destination.exists():
-            raise FileExistsError(f"Целевой файл уже существует: {move.destination.name}")
+            raise FileExistsError(f"Destination file already exists: {move.destination.name}")
 
     total_before = sum(current_counts.values())
     created: list[PresetMove] = []
@@ -235,7 +235,7 @@ def execute_move_plan(plan: MovePlan) -> None:
                 shutil.copyfileobj(source, target, length=1024 * 1024)
             shutil.copystat(move.source, move.destination)
             if file_digest(move.source) != file_digest(move.destination):
-                raise OSError(f"Проверка копии не пройдена: {move.source.name}")
+                raise OSError(f"Copy verification failed: {move.source.name}")
 
         # Sources are removed only after every destination copy has been verified.
         for move in plan.moves:
@@ -251,9 +251,9 @@ def execute_move_plan(plan: MovePlan) -> None:
             for bank in BANKS
         }
         if actual_after != after or sum(actual_after.values()) != total_before:
-            raise RuntimeError("Итоговая проверка количества файлов не пройдена")
+            raise RuntimeError("Final file-count verification failed")
         if any(count > 256 for count in actual_after.values()):
-            raise RuntimeError("После переноса один из банков всё ещё переполнен")
+            raise RuntimeError("A bank is still over capacity after the move")
     except Exception as exc:
         rollback_errors: list[str] = []
         removed_sources = {move.source for move in removed}
@@ -267,7 +267,7 @@ def execute_move_plan(plan: MovePlan) -> None:
                 rollback_errors.append(f"{move.source.name}: {rollback_exc}")
         if rollback_errors:
             raise RuntimeError(
-                f"{exc}; ошибка восстановления: {'; '.join(rollback_errors)}"
+                f"{exc}; rollback error: {'; '.join(rollback_errors)}"
             ) from exc
         raise
 
@@ -532,7 +532,7 @@ class App:
         if index == 5:
             return "quit"
         if not self.settings_complete() and index != 4:
-            self.message = "Сначала укажите обе папки в настройках"
+            self.message = "Select both folders in Settings before continuing"
             self.settings_view = True
             return None
         self.pack_view = index == 1
@@ -548,7 +548,7 @@ class App:
         height, width = self.screen.getmaxyx()
         y = height - 2
         self.add(y, 0, " " * max(0, width - 1))
-        labels = ("БАНКИ", "САУНД-ПАКИ", "ТЕГИ", "СТАТИСТИКА", "НАСТРОЙКИ", "ВЫХОД")
+        labels = ("BANKS", "SOUND PACKS", "TAGS", "STATISTICS", "SETTINGS", "EXIT")
         active = self.current_section()
         self.menu_hitboxes = []
         x = 2
@@ -603,16 +603,16 @@ class App:
             suffix = "]  " if active else "   "
             self.add(2, x, suffix, curses.A_BOLD)
             x += len(suffix)
-        packs_tab = "[САУНД-ПАКИ]" if self.pack_view else " САУНД-ПАКИ "
+        packs_tab = "[SOUND PACKS]" if self.pack_view else " SOUND PACKS "
         self.add(2, x + 2, packs_tab, curses.A_BOLD)
         x += len(packs_tab) + 5
-        tags_tab = "[ТЕГИ]" if self.tags_view else " ТЕГИ "
+        tags_tab = "[TAGS]" if self.tags_view else " TAGS "
         self.add(2, x, tags_tab, curses.A_BOLD)
         x += len(tags_tab) + 3
-        stats_tab = "[СТАТИСТИКА]" if self.stats_view else " СТАТИСТИКА "
+        stats_tab = "[STATISTICS]" if self.stats_view else " STATISTICS "
         self.add(2, x, stats_tab, curses.A_BOLD)
         x += len(stats_tab) + 3
-        settings_tab = "[НАСТРОЙКИ]" if self.settings_view else " НАСТРОЙКИ "
+        settings_tab = "[SETTINGS]" if self.settings_view else " SETTINGS "
         self.add(2, x, settings_tab, curses.A_BOLD)
 
     def draw(self) -> None:
@@ -633,18 +633,18 @@ class App:
         if self.settings_view:
             self.draw_settings()
             return
-        mode_names = ("ВСЕ", "НАЙДЕНЫ", "НЕ НАЙДЕНЫ", "ТОЛЬКО ИМЯ")
+        mode_names = ("ALL", "FOUND", "NOT FOUND", "NAME ONLY")
         bank_count = len(self.result.banks[self.bank])
-        prefix = "ПРЕСЕТОВ: "
+        prefix = "PRESETS: "
         self.add(3, 2, prefix)
         capacity = f"{bank_count}/256"
         capacity_attr = curses.color_pair(4) | curses.A_BOLD if bank_count > 256 else 0
         self.add(3, 2 + len(prefix), capacity, capacity_attr)
-        status = f"   Совпадения: {mode_names[self.mode]}   Тег: {self.tag_filter or 'ВСЕ'}"
+        status = f"   Matches: {mode_names[self.mode]}   Tag: {self.tag_filter or 'ALL'}"
         status_x = 2 + len(prefix) + len(capacity)
         self.add(3, status_x, status)
         duplicate_count = sum(bool(row.duplicate_locations) for row in self.result.banks[self.bank])
-        duplicate_text = f"   ДУБЛЕЙ: {duplicate_count}"
+        duplicate_text = f"   DUPLICATES: {duplicate_count}"
         duplicate_attr = curses.color_pair(4) | curses.A_BOLD if duplicate_count else curses.A_DIM
         self.add(3, status_x + len(status), duplicate_text, duplicate_attr)
 
@@ -669,27 +669,27 @@ class App:
             self.add(y, 2, line, attr)
 
         matched = sum(bool(r.exact_packs) for r in self.result.banks[self.bank])
-        stats = f"Bank {self.bank}: {matched}/{len(self.result.banks[self.bank])} найдено · паков: {self.result.pack_count} · файлов: {self.result.pack_preset_count}"
+        stats = f"Bank {self.bank}: {matched}/{len(self.result.banks[self.bank])} found · packs: {self.result.pack_count} · files: {self.result.pack_preset_count}"
         self.add(height - 5, 2, stats, curses.A_BOLD)
         if rows:
             row = rows[self.selected]
-            detail = f"Файл: {row.parsed.path.name}"
+            detail = f"File: {row.parsed.path.name}"
             if row.name_only_packs:
-                detail += f" · ≈ другое содержимое: {', '.join(row.name_only_packs)}"
+                detail += f" · ≈ same name, different content: {', '.join(row.name_only_packs)}"
             if row.duplicate_locations:
-                detail += f" · дубли: {', '.join(row.duplicate_locations)}"
+                detail += f" · duplicates: {', '.join(row.duplicate_locations)}"
             self.add(height - 4, 2, detail, curses.A_DIM)
-        self.add(height - 2, 2, "←/→ банк  ↑/↓ выбор  T фильтр  F совпадения  P паки  G теги  S статистика  E отчёт  R скан  Q выход")
+        self.add(height - 2, 2, "←/→ bank  ↑/↓ select  T tag filter  F matches  E report  R scan  Q exit")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
         self.draw_bottom_menu()
         self.screen.refresh()
 
     def draw_settings(self) -> None:
         height, width = self.screen.getmaxyx()
-        self.add(4, 2, "ПАПКИ ДЛЯ СКАНИРОВАНИЯ", curses.A_DIM | curses.A_BOLD)
+        self.add(4, 2, "FOLDERS TO SCAN", curses.A_DIM | curses.A_BOLD)
         rows = (
-            ("Банки A–H", self.settings.backup),
-            ("Саунд-паки", self.settings.packs),
+            ("Banks A–H", self.settings.backup),
+            ("Sound packs", self.settings.packs),
         )
         for index, (label, path) in enumerate(rows):
             y = 6 + index * 4
@@ -697,17 +697,17 @@ class App:
             self.add(y, 4, f" {label} ", attr)
             valid = path is not None and path.is_dir()
             path_attr = curses.color_pair(2) if valid else curses.color_pair(4)
-            shown = str(path) if path else "НЕ УКАЗАНО — выберите папку"
+            shown = str(path) if path else "NOT SET — select a folder"
             self.add(y + 1, 6, shown[:max(1, width - 9)], path_attr)
-        self.add(height - 4, 2, f"Файл настроек: {settings_path()}", curses.A_DIM)
+        self.add(height - 4, 2, f"Settings file: {settings_path()}", curses.A_DIM)
         complete = all(
             path is not None and path.is_dir()
             for path in (self.settings.backup, self.settings.packs)
         )
-        controls = "↑/↓ выбрать  Enter выбрать папку"
+        controls = "↑/↓ select  Enter choose folder"
         if complete:
-            controls += "  O банки  P паки  G теги  S статистика"
-        controls += "  Q выход"
+            controls += "  O banks  P packs  G tags  S statistics"
+        controls += "  Q exit"
         self.add(height - 2, 2, controls)
         self.add(height - 1, 2, self.message, curses.color_pair(2))
         self.draw_bottom_menu()
@@ -743,7 +743,7 @@ class App:
         try:
             self.screen.erase()
             self.add(0, 0, f" {title} ", curses.color_pair(1) | curses.A_BOLD)
-            self.add(2, 2, "Введите полный путь и нажмите Enter:")
+            self.add(2, 2, "Enter the full path and press Enter:")
             self.add(4, 2, str(initial))
             self.screen.move(4, 2)
             value = self.screen.getstr(4, 2, 4096).decode("utf-8").strip()
@@ -753,14 +753,14 @@ class App:
             curses.curs_set(0)
 
     def update_selected_setting(self) -> bool:
-        labels = ("Выберите папку с банками A–H", "Выберите папку с саунд-паками")
+        labels = ("Select the folder containing banks A–H", "Select the sound-packs folder")
         current = (self.settings.backup, self.settings.packs)[self.settings_selection]
         chosen = self.choose_folder(labels[self.settings_selection], current)
         if chosen is None:
-            self.message = "Выбор папки отменён"
+            self.message = "Folder selection cancelled"
             return False
         if not chosen.is_dir():
-            self.message = f"Папка не найдена: {chosen}"
+            self.message = f"Folder not found: {chosen}"
             return False
         updated = Settings(
             backup=chosen if self.settings_selection == 0 else self.settings.backup,
@@ -769,10 +769,10 @@ class App:
         try:
             save_settings(updated)
         except OSError as exc:
-            self.message = f"Не удалось сохранить настройки: {exc}"
+            self.message = f"Could not save settings: {exc}"
             return False
         self.settings = updated
-        self.message = "Настройки сохранены"
+        self.message = "Settings saved"
         return True
 
     def draw_packs(self) -> None:
@@ -785,11 +785,11 @@ class App:
             self.offset = self.selected
         elif self.selected >= self.offset + visible:
             self.offset = self.selected - visible + 1
-        pack_mode = "ТОЛЬКО БЕЗ НАЙДЕННЫХ" if self.only_empty_packs else "ВСЕ ПАПКИ"
-        self.add(3, 2, f"Режим: {pack_mode}")
+        pack_mode = "ONLY PACKS WITH NO MATCHES" if self.only_empty_packs else "ALL FOLDERS"
+        self.add(3, 2, f"Mode: {pack_mode}")
         left_width = min(58, max(34, width // 2 - 4))
         name_width = max(14, left_width - 18)
-        self.add(4, 2, f"{'САУНД-ПАК':{name_width}}  НАЙДЕНО   ВСЕГО", curses.A_DIM)
+        self.add(4, 2, f"{'SOUND PACK':{name_width}}  FOUND     TOTAL", curses.A_DIM)
         for y, pack in enumerate(packs[self.offset:self.offset + visible], list_top):
             idx = self.offset + y - list_top
             found, exact, by_name = self.result.pack_match_counts[pack]
@@ -799,7 +799,7 @@ class App:
                 curses.color_pair(2) if found else curses.color_pair(3))
             self.add(y, 2, line, attr)
         found_packs = sum(bool(v[0]) for v in self.result.pack_match_counts.values())
-        summary = f"Найдены пресеты из {found_packs}/{self.result.pack_count} саунд-паков"
+        summary = f"Presets found from {found_packs}/{self.result.pack_count} sound packs"
         self.add(height - 4, 2, summary[:left_width], curses.A_BOLD)
         if packs:
             pack = packs[self.selected]
@@ -807,7 +807,7 @@ class App:
                 pack, PackDetails(self.result.pack_file_counts[pack], {}, [], [])
             )
             self.draw_pack_details(pack, details, left_width + 5, width, height)
-        self.add(height - 2, 2, "↑/↓ пак  ←/→ справа  Z без совпадений  P банки  G теги  S статистика  E отчёт  R скан  Q выход")
+        self.add(height - 2, 2, "↑/↓ pack  ←/→ details  Z no matches  E report  R scan  Q exit")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
         self.draw_bottom_menu()
         self.screen.refresh()
@@ -818,14 +818,14 @@ class App:
         panel_width = max(1, width - x - 2)
         for y in range(3, height - 2):
             self.add(y, x - 2, "│", curses.A_DIM)
-        self.add(3, x, "ВЫБРАННЫЙ САУНД-ПАК", curses.A_BOLD)
+        self.add(3, x, "SELECTED SOUND PACK", curses.A_BOLD)
         self.add(4, x, pack[:panel_width], curses.color_pair(2) | curses.A_BOLD)
-        self.add(6, x, f"Пресетов внутри: {details.preset_count}")
+        self.add(6, x, f"Presets in pack: {details.preset_count}")
         used = len(details.bank_matches) + len(details.name_only_matches)
         self.add(
             7,
             x,
-            f"Найдено в банках: {used} · точно: {len(details.bank_matches)} · по имени: {len(details.name_only_matches)}"[:panel_width],
+            f"Found in banks: {used} · exact: {len(details.bank_matches)} · name only: {len(details.name_only_matches)}"[:panel_width],
         )
 
         matches_x = x + min(34, max(22, panel_width // 3))
@@ -839,8 +839,8 @@ class App:
             self.pack_detail_offset, max(0, len(matches) - available)
         )
         match_end = min(len(matches), self.pack_detail_offset + available)
-        self.add(9, x, "ТЕГИ", curses.A_DIM | curses.A_BOLD)
-        match_header = "ПРЕСЕТЫ В БАНКАХ"
+        self.add(9, x, "TAGS", curses.A_DIM | curses.A_BOLD)
+        match_header = "PRESETS IN BANKS"
         if matches:
             match_header += f"  {self.pack_detail_offset + 1}–{match_end}/{len(matches)}"
         self.add(9, matches_x, match_header, curses.A_DIM | curses.A_BOLD)
@@ -852,7 +852,7 @@ class App:
         for index, tag in enumerate(tags[:available]):
             self.add(10 + index, x, f"{tag[:tag_width]:{tag_width}} {details.tag_counts[tag]:4}")
         if len(tags) > available and available:
-            self.add(10 + available - 1, x, f"… ещё {len(tags) - available + 1}", curses.A_DIM)
+            self.add(10 + available - 1, x, f"… {len(tags) - available + 1} more", curses.A_DIM)
 
         match_width = max(8, width - matches_x - 2)
         visible_matches = matches[self.pack_detail_offset:match_end]
@@ -878,7 +878,7 @@ class App:
             self.offset = self.selected
         elif self.selected >= self.offset + visible:
             self.offset = self.selected - visible + 1
-        self.add(4, 2, "ТЕГ                                      ПРЕСЕТОВ", curses.A_DIM)
+        self.add(4, 2, "TAG                                      PRESETS", curses.A_DIM)
         for y, tag in enumerate(tags[self.offset:self.offset + visible], list_top):
             idx = self.offset + y - list_top
             line = f"{tag[:40]:40}  {counts[tag]:8}"
@@ -891,10 +891,10 @@ class App:
         self.add(
             height - 4,
             2,
-            f"Уникальных тегов: {len(tags)} · пресетов с тегами: {tagged_presets}/{total_presets}",
+            f"Unique tags: {len(tags)} · tagged presets: {tagged_presets}/{total_presets}",
             curses.A_BOLD,
         )
-        self.add(height - 2, 2, "↑/↓ выбор  G банки  P саунд-паки  S статистика  E отчёт  R скан  Q выход")
+        self.add(height - 2, 2, "↑/↓ select  E report  R scan  Q exit")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
         self.draw_bottom_menu()
         self.screen.refresh()
@@ -906,12 +906,12 @@ class App:
         if difference < 0:
             return f"{count}/{maximum} (+{-difference})", 2
         if difference > 0:
-            return f"{count}/{maximum} (+{difference} сверх)", 4
+            return f"{count}/{maximum} (+{difference} over)", 4
         return f"{count}/{maximum}", 3
 
     def draw_stats(self) -> None:
         height, _ = self.screen.getmaxyx()
-        self.add(4, 2, "ЗАПОЛНЕННОСТЬ БАНКОВ", curses.A_DIM | curses.A_BOLD)
+        self.add(4, 2, "BANK CAPACITY", curses.A_DIM | curses.A_BOLD)
         for index, bank in enumerate(BANKS):
             count = len(self.result.banks[bank])
             capacity, color = self.capacity_text(count, 256)
@@ -926,14 +926,14 @@ class App:
         maximum = 256 * len(BANKS)
         capacity, color = self.capacity_text(total, maximum)
         summary_y = min(height - 5, 6 + len(BANKS) + 2)
-        self.add(summary_y, 2, "ВСЕГО", curses.A_BOLD)
+        self.add(summary_y, 2, "TOTAL", curses.A_BOLD)
         self.add(
             summary_y,
             13,
             capacity,
             curses.color_pair(color) | curses.A_BOLD,
         )
-        self.add(height - 2, 2, "M план переноса  S банки  P саунд-паки  G теги  E отчёт  R скан  Q выход")
+        self.add(height - 2, 2, "M move plan  E report  R scan  Q exit")
         self.add(height - 1, 2, self.message, curses.color_pair(2))
         self.draw_bottom_menu()
         self.screen.refresh()
@@ -947,10 +947,10 @@ class App:
             self.add(
                 0,
                 0,
-                " ПЛАН ПЕРЕРАСПРЕДЕЛЕНИЯ ".ljust(width - 1),
+                " REDISTRIBUTION PLAN ".ljust(width - 1),
                 curses.color_pair(1) | curses.A_BOLD,
             )
-            self.add(2, 2, f"Будет перенесено пресетов: {len(plan.moves)}", curses.A_BOLD)
+            self.add(2, 2, f"Presets to move: {len(plan.moves)}", curses.A_BOLD)
             sources: Counter[str] = Counter(move.source_bank for move in plan.moves)
             destinations: Counter[str] = Counter(
                 move.destination_bank for move in plan.moves
@@ -958,17 +958,17 @@ class App:
             self.add(
                 4,
                 2,
-                "ИЗ: " + "   ".join(f"BANK {bank}: {sources[bank]}" for bank in BANKS if sources[bank]),
+                "FROM: " + "   ".join(f"BANK {bank}: {sources[bank]}" for bank in BANKS if sources[bank]),
             )
             destination_parts = [
                 f"BANK {bank}: +{destinations[bank]}"
                 for bank in BANKS if destinations[bank]
             ]
             for index in range(0, len(destination_parts), 4):
-                self.add(5 + index // 4, 2, "В:  " + "   ".join(destination_parts[index:index + 4]))
+                self.add(5 + index // 4, 2, "TO:   " + "   ".join(destination_parts[index:index + 4]))
 
             y = 8
-            self.add(y, 2, "ПОСЛЕ ПЕРЕНОСА", curses.A_DIM | curses.A_BOLD)
+            self.add(y, 2, "AFTER THE MOVE", curses.A_DIM | curses.A_BOLD)
             y += 1
             after = plan.after_counts
             for start in range(0, len(BANKS), 4):
@@ -983,7 +983,7 @@ class App:
             self.add(
                 min(y + 1, height - 5),
                 2,
-                f"Всего: {total_before} → {total_after} (количество не изменится)",
+                f"Total: {total_before} → {total_after} (count will not change)",
                 curses.A_BOLD,
             )
             button_y = height - 3
@@ -991,7 +991,7 @@ class App:
             cancel_attr = curses.A_BOLD if selected_move else curses.A_REVERSE | curses.A_BOLD
             self.add(button_y, 4, "[ MOVE ]", move_attr | curses.color_pair(4))
             self.add(button_y, 17, "[ CANCEL ]", cancel_attr)
-            self.add(height - 1, 2, "←/→ выбрать  Enter подтвердить  Esc отменить", curses.A_DIM)
+            self.add(height - 1, 2, "←/→ select  Enter confirm  Esc cancel", curses.A_DIM)
             self.screen.refresh()
             key = self.screen.getch()
             if key in (27, ord("q"), ord("Q")):
@@ -1005,24 +1005,24 @@ class App:
         try:
             plan = build_move_plan(self.result)
         except (OSError, ValueError) as exc:
-            self.message = f"Перенос невозможен: {exc}"
+            self.message = f"Cannot move presets: {exc}"
             return False
         if not plan.moves:
-            self.message = "Переполненных банков нет — перенос не требуется"
+            self.message = "No banks are over capacity — no move is needed"
             return False
         if not self.confirm_move_plan(plan):
-            self.message = "Перенос отменён — файлы не изменены"
+            self.message = "Move cancelled — no files were changed"
             return False
 
         self.screen.erase()
-        self.add(0, 0, " ПЕРЕНОС ПРЕСЕТОВ ", curses.color_pair(1) | curses.A_BOLD)
-        self.add(2, 2, f"Копирование и проверка {len(plan.moves)} файлов…")
-        self.add(4, 2, "Не отключайте диск до завершения операции.", curses.A_BOLD)
+        self.add(0, 0, " MOVING PRESETS ", curses.color_pair(1) | curses.A_BOLD)
+        self.add(2, 2, f"Copying and verifying {len(plan.moves)} files…")
+        self.add(4, 2, "Do not disconnect the drive until this operation finishes.", curses.A_BOLD)
         self.screen.refresh()
         try:
             execute_move_plan(plan)
         except (OSError, RuntimeError, ValueError) as exc:
-            self.message = f"Перенос не выполнен: {exc}"
+            self.message = f"Move failed: {exc}"
             return False
         return True
 
@@ -1037,8 +1037,8 @@ class App:
         while True:
             self.screen.erase()
             height, width = self.screen.getmaxyx()
-            self.add(0, 0, " ФИЛЬТР ПО ТЕГУ ".ljust(width - 1), curses.color_pair(1) | curses.A_BOLD)
-            self.add(2, 2, "Выберите тег:", curses.A_BOLD)
+            self.add(0, 0, " TAG FILTER ".ljust(width - 1), curses.color_pair(1) | curses.A_BOLD)
+            self.add(2, 2, "Select a tag:", curses.A_BOLD)
             list_top = 4
             visible = max(1, height - 7)
             if choice < offset:
@@ -1047,9 +1047,9 @@ class App:
                 offset = choice - visible + 1
             for y, option in enumerate(options[offset:offset + visible], list_top):
                 index = offset + y - list_top
-                label = "ВСЕ ТЕГИ" if option is None else option
+                label = "ALL TAGS" if option is None else option
                 self.add(y, 4, label, curses.A_REVERSE if index == choice else 0)
-            self.add(height - 2, 2, "↑/↓ выбор  Enter применить  Esc отменить")
+            self.add(height - 2, 2, "↑/↓ select  Enter apply  Esc cancel")
             self.screen.refresh()
             key = self.screen.getch()
             if key in (27, ord("q"), ord("Q")):
@@ -1172,7 +1172,7 @@ class App:
                     self.pack_detail_offset = 0
                 elif key in (ord("e"), ord("E")):
                     export_report(self.result, self.report_path)
-                    self.message = f"Отчёт сохранён: {self.report_path}"
+                    self.message = f"Report saved: {self.report_path}"
                 elif key in (ord("r"), ord("R")):
                     return "rescan"
                 continue
@@ -1193,7 +1193,7 @@ class App:
                     self.selected = max(0, self.selected - 10)
                 elif key in (ord("e"), ord("E")):
                     export_report(self.result, self.report_path)
-                    self.message = f"Отчёт сохранён: {self.report_path}"
+                    self.message = f"Report saved: {self.report_path}"
                 elif key in (ord("r"), ord("R")):
                     return "rescan"
                 continue
@@ -1203,7 +1203,7 @@ class App:
                         return "rescan"
                 elif key in (ord("e"), ord("E")):
                     export_report(self.result, self.report_path)
-                    self.message = f"Отчёт сохранён: {self.report_path}"
+                    self.message = f"Report saved: {self.report_path}"
                 elif key in (ord("r"), ord("R")):
                     return "rescan"
                 continue
@@ -1228,7 +1228,7 @@ class App:
                 self.selected = self.offset = 0
             elif key in (ord("e"), ord("E")):
                 export_report(self.result, self.report_path)
-                self.message = f"Отчёт сохранён: {self.report_path}"
+                self.message = f"Report saved: {self.report_path}"
             elif key in (ord("r"), ord("R")):
                 return "rescan"
 
@@ -1260,14 +1260,14 @@ def run_ui(settings: Settings, report: Path) -> None:
                 empty = ScanResult({bank: [] for bank in BANKS}, 0, 0, {}, {}, [])
                 app = App(screen, empty, report, settings)
                 app.settings_view = True
-                app.message = "Укажите существующие папки — один или оба текущих пути недоступны"
+                app.message = "Select valid folders — one or both saved paths are unavailable"
                 action = app.run()
                 if action == "settings_changed":
                     settings = load_settings()
                     continue
                 break
             screen.erase()
-            screen.addstr(0, 0, "Сканирование .dn2pst и .dnsnd…")
+            screen.addstr(0, 0, "Scanning .dn2pst and .dnsnd files…")
             screen.refresh()
 
             def progress(message: str) -> None:
@@ -1301,12 +1301,12 @@ def main() -> int:
     settings = Settings(args.backup or saved.backup, args.packs or saved.packs)
     if args.no_ui:
         missing = [
-            "не указан" if path is None else str(path)
+            "not set" if path is None else str(path)
             for path in (settings.backup, settings.packs)
             if path is None or not path.is_dir()
         ]
         if missing:
-            print("Не указаны или не найдены папки:\n" + "\n".join(missing), file=sys.stderr)
+            print("Folders are missing or not set:\n" + "\n".join(missing), file=sys.stderr)
             return 2
         assert settings.backup is not None and settings.packs is not None
         result = scan(settings.backup, settings.packs, lambda text: print(text, file=sys.stderr))

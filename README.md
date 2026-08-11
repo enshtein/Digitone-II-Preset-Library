@@ -1,93 +1,108 @@
 # Digitone II Preset Library
 
-Приложение для просмотра коллекции пресетов в банках A–H, поиска дублей,
-просмотра тегов и определения исходных саунд-паков. Программа работает с
-папками экспортированных пресетов и не подключается к устройству Digitone II.
+A cross-platform terminal app for browsing a collection of Digitone II presets
+organized into banks A–H. It helps you find duplicate presets, browse tags, and
+see which sound packs your presets came from. The app works with exported preset
+files and does not connect to the Digitone II hardware.
 
-## Запуск
+## Requirements
+
+- Python 3.10 or newer
+- A folder containing bank folders named `A` through `H`
+- A folder containing your sound-pack collection
+
+No additional packages are required on macOS or Linux. On Windows, the launcher
+automatically installs the small `windows-curses` terminal dependency the first
+time it runs, so an internet connection is required for that first launch.
+
+## Start the app
+
+Use the launcher for your operating system:
 
 - **macOS:** `Start Digitone II Preset Library (macOS).command`
 - **Linux:** `Start Digitone II Preset Library (Linux).sh`
 - **Windows:** `Start Digitone II Preset Library (Windows).bat`
 
-Также на macOS и Linux можно запустить приложение из терминала:
+On macOS or Linux, you can also run:
 
-  ```bash
-  python3 digitone_preset_library.py
-  ```
+```bash
+python3 digitone_preset_library.py
+```
 
-Первый запуск сканирует все `.dn2pst` и совместимые пресеты Digitone `.dnsnd`.
-На macOS и Linux сторонние Python-библиотеки не нужны. Windows-лаунчер
-автоматически устанавливает пакет `windows-curses`, необходимый для
-терминального интерфейса. Для первого запуска на Windows нужен интернет.
-При первом запуске программа обязательно попросит выбрать папку с банками A–H
-и папку с саунд-паками. Пока обе существующие папки не указаны, основной
-интерфейс и сканирование недоступны.
+## First launch
 
-Внизу экрана постоянно отображается главное меню. Его пункты можно открывать
-кликом мыши. С клавиатуры нажмите `Tab`, выберите пункт стрелками влево/вправо
-и нажмите `Enter`. Горячие клавиши также сохранены как дополнительный способ
-навигации: стрелки влево/вправо переключают банки, вверх/вниз выбирают строку,
-`T` открывает выбор фильтра по тегу, `F` переключает фильтры совпадений,
-`P` открывает сводку по всем саунд-пакам, `G` — сводку тегов по пресетам всех
-банков, `S` — статистику заполненности всех восьми банков и общий итог,
-`O` — настройки папок банков и саунд-паков,
-`E` сохраняет `digitone_report.txt`, `R` пересканирует файлы, `Q`
-завершает программу.
+The app asks you to select two folders before scanning:
 
-Раздел `НАСТРОЙКИ` открывается кликом в нижнем меню либо клавишей `O`.
-Внутри него стрелками выбирается один из двух путей, а `Enter`
-открывает системное окно выбора папки. Изменение сохраняется автоматически и
-сразу запускает новое сканирование. Настройки хранятся независимо от программы:
-в `Application Support` на macOS, в каталоге конфигурации пользователя на Linux
-и в `%APPDATA%` на Windows. Поэтому повторно указывать пути после запуска или
-обновления не требуется.
-В исходном коде нет пользовательских путей или путей по умолчанию.
+1. **Banks A–H** — the folder that contains your `A`, `B`, `C`, … `H` bank folders.
+2. **Sound packs** — the folder that contains your sound-pack collection.
 
-На экране саунд-паков по умолчанию отображаются все папки. Клавиша `Z`
-переключает таблицу в режим, где показаны только папки, из которых в банках не
-найдено ни одного пресета; повторное нажатие возвращает полный список.
-Справа для выбранного саунд-пака показаны общее число пресетов, точные и
-совпадающие только по имени позиции в банках, статистика тегов и имена найденных
-пресетов. Совпадения только по имени отмечены знаком `≈`. Стрелки влево/вправо
-листают страницы найденных пресетов в правой панели.
+Both selections are saved automatically. You can change them later from
+**Settings**. If a saved folder is no longer available, the app opens Settings
+and asks you to select a valid folder before continuing.
 
-В колонке `TAGS` показываются теги из `MetaInfo.Tags` внутри файла пресета.
-Зелёная строка означает точное совпадение внутреннего payload. Если имя есть в
-саунд-паке, но содержимое отличается, такой пресет не считается найденным.
-В строке состояния активного банка показано количество пресетов относительно
-лимита 256. При превышении лимита счётчик становится красным.
-Буквы банков окрашиваются по заполненности: зелёный — меньше 256 пресетов,
-жёлтый — ровно 256, красный — больше 256.
-На вкладке статистики рядом с каждым банком показано, сколько пресетов осталось
-до лимита или насколько лимит превышен. Общий итог сравнивается с вместимостью
-восьми банков — 2048 пресетов — по тем же цветовым правилам.
-Клавиша `M` на этой вкладке сначала показывает план безопасного переноса из
-переполненных банков. План последовательно заполняет банки A–H до лимита 256 и
-показывает количество для каждого направления. Никакие
-файлы не меняются, пока на экране подтверждения не выбрана кнопка `MOVE` и не
-нажат `Enter`; по умолчанию выбрана кнопка `CANCEL`.
+## Navigation
 
-При переносе исходные имена файлов сохраняются без изменений. Существующие
-файлы не перезаписываются: если в целевой папке уже есть файл с таким же именем,
-операция остановится. Программа сначала эксклюзивно создаёт и проверяет все
-копии, только затем удаляет исходные экземпляры. После операции проверяются
-лимит 256 в каждом банке и неизменность общего количества файлов. При ошибке
-выполняется откат.
-Красным выделяются пресеты, чей внутренний payload повторяется в любом месте —
-в том же или в другом банке. Число таких строк показано как `ДУБЛЕЙ` для
-активного банка, а позиции остальных копий перечисляются внизу экрана.
+The main menu is always shown at the bottom of the screen:
 
-Сканируются только папки `A`–`H` непосредственно внутри `00_FAVORITS`.
-`VER2`, `OVERFLOW` и другие папки намеренно игнорируются. Номер слева — позиция
-файла после сортировки по имени внутри банка.
+`BANKS` · `SOUND PACKS` · `TAGS` · `STATISTICS` · `SETTINGS` · `EXIT`
 
-## Другие пути и текстовый режим
+- Click a menu item with the mouse; or
+- Press `Tab`, select an item with `←` and `→`, then press `Enter`.
+
+Keyboard shortcuts are also available:
+
+- `P` — Sound Packs
+- `G` — Tags
+- `S` — Statistics
+- `O` — Settings
+- `E` — export a text report
+- `R` — scan the folders again
+- `Q` — exit
+
+Within lists, use `↑` and `↓` to move, and `Page Up` / `Page Down` to scroll.
+
+## What you can view
+
+### Banks
+
+Browse every preset in banks A–H, see its tags and source sound pack, filter the
+list by tag or match status, and spot duplicates highlighted in red.
+
+### Sound Packs
+
+See how many presets from each sound pack are present in your banks. Select a
+sound pack to view its tags and matching bank positions. Press `Z` to show only
+sound packs with no presets found in the banks.
+
+### Tags
+
+View all tags found in your preset collection and the number of presets using
+each tag.
+
+### Statistics
+
+View bank capacity at a glance. Each bank can contain up to 256 presets. If a
+bank exceeds that limit, press `M` to review a redistribution plan. Files are
+not moved until you explicitly select **MOVE** and confirm.
+
+### Settings
+
+Change the Banks A–H folder or Sound Packs folder. Select a row and press
+`Enter` to choose a new folder. The new path is saved automatically and the
+collection is scanned again.
+
+## Command-line options
+
+You can temporarily override the saved folders:
 
 ```bash
 python3 digitone_preset_library.py \
-  --backup "/path/to/backup" \
-  --packs "/path/to/Sound Packs"
+  --backup "/path/to/banks" \
+  --packs "/path/to/sound-packs"
+```
 
+To create a report without opening the interface:
+
+```bash
 python3 digitone_preset_library.py --no-ui --report report.txt
 ```

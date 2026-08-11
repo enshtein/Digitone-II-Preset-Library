@@ -19,7 +19,6 @@ from textual.widgets import (
     Header,
     Input,
     Label,
-    Select,
     Static,
     Switch,
     Tab,
@@ -124,7 +123,6 @@ class PresetLibraryApp(App[None]):
     .view { height: 1fr; padding: 1; }
     .toolbar { height: 3; align-vertical: middle; }
     .toolbar Label { width: auto; margin-right: 1; }
-    .toolbar Select { width: 22; margin-right: 2; }
     .toolbar Switch { margin-right: 1; }
     DataTable { height: 1fr; border: round #216e4e; }
     #packs-layout { height: 1fr; }
@@ -199,14 +197,6 @@ class PresetLibraryApp(App[None]):
                     active=f"bank-{self.current_bank}",
                     id="bank-tabs",
                 )
-                with Horizontal(classes="toolbar"):
-                    yield Label("Matches")
-                    yield Select(
-                        [("All", "all"), ("Found", "found"), ("Not found", "missing"), ("Name only", "name")],
-                        value="all", allow_blank=False, id="match-select",
-                    )
-                    yield Label("Tag")
-                    yield Select([("All", "__all__")], value="__all__", allow_blank=False, id="tag-select")
                 yield DataTable(id="banks-table", cursor_type="row", zebra_stripes=True)
             with Vertical(id="view-packs", classes="view"):
                 with Horizontal(classes="toolbar"):
@@ -291,13 +281,6 @@ class PresetLibraryApp(App[None]):
 
     def apply_result(self, result: Any) -> None:
         self.result = result
-        tags = sorted(
-            {tag for rows in result.banks.values() for row in rows for tag in row.parsed.tags},
-            key=str.casefold,
-        )
-        tag_select = self.query_one("#tag-select", Select)
-        tag_select.set_options([("All", "__all__"), *((tag, tag) for tag in tags)])
-        tag_select.value = "__all__"
         self.populate_banks()
         self.populate_packs()
         self.populate_tags()
@@ -315,17 +298,7 @@ class PresetLibraryApp(App[None]):
         if self.result is None:
             return
         table = self.clear_table("#banks-table", ("Slot", "Preset", "Tags", "Sound Pack(s)"))
-        mode = self.query_one("#match-select", Select).value
-        tag_filter = self.query_one("#tag-select", Select).value
         for row in self.result.banks[self.current_bank]:
-            if mode == "found" and not row.exact_packs:
-                continue
-            if mode == "missing" and row.exact_packs:
-                continue
-            if mode == "name" and not (row.name_only_packs and not row.exact_packs):
-                continue
-            if isinstance(tag_filter, str) and tag_filter != "__all__" and tag_filter not in row.parsed.tags:
-                continue
             packs = ", ".join(row.exact_packs or row.name_only_packs) or "—"
             name = Text(row.parsed.display_name, style="bold red" if row.duplicate_locations else "")
             table.add_row(f"{row.slot:03d}", name, ", ".join(row.parsed.tags) or "—", packs)
@@ -335,14 +308,6 @@ class PresetLibraryApp(App[None]):
         if event.tab and event.tab.id:
             self.current_bank = event.tab.id.removeprefix("bank-")
             self.populate_banks()
-
-    @on(Select.Changed, "#match-select")
-    def match_changed(self) -> None:
-        self.populate_banks()
-
-    @on(Select.Changed, "#tag-select")
-    def tag_changed(self) -> None:
-        self.populate_banks()
 
     def populate_packs(self) -> None:
         if self.result is None:

@@ -72,8 +72,8 @@ Within lists, use `↑` and `↓` to move, and `Page Up` / `Page Down` to scroll
 ### Banks
 
 Switch directly between banks using the permanent horizontal `A`–`H` tabs.
-Browse every preset, see its tags and source sound pack, filter the list by tag
-or match status, and spot duplicates highlighted in red.
+Browse every preset, see its tags and source sound pack, and spot duplicates
+highlighted in red.
 
 ### Sound Packs
 
